@@ -70,6 +70,42 @@ export function ImageResizer() {
     checkAuth();
   }, []);
 
+  useEffect(() => {
+    // Check for pending image from Content Creator
+    const pendingImage = localStorage.getItem('pendingImage');
+    if (pendingImage) {
+      try {
+        const imageData = JSON.parse(pendingImage);
+        
+        // Convertir le base64 en blob puis en File
+        fetch(imageData.preview)
+          .then(res => res.blob())
+          .then(blob => {
+            const file = new File([blob], imageData.file.name, {
+              type: imageData.file.type,
+              lastModified: imageData.file.lastModified
+            });
+            
+            setImage({
+              file,
+              preview: imageData.preview
+            });
+            
+            // Générer le preview initial
+            generatePreview({
+              file,
+              preview: imageData.preview
+            }, defaultOptions);
+          });
+          
+        localStorage.removeItem('pendingImage');
+      } catch (error) {
+        console.error('Error loading pending image:', error);
+        toast.error('Failed to load image from Content Creator');
+      }
+    }
+  }, []);
+
   const defaultOptions: ResizeOptions = {
     mode: 'crop',
     aspectRatio: 'instagram-square',
@@ -737,15 +773,15 @@ export function ImageResizer() {
                     alt="Preview"
                     className="max-h-[600px] w-auto"
                   />
-                </div>
-                <div className="flex gap-2">
-                  <Button onClick={handleDownload}>
-                    <ImageIcon className="mr-2 h-4 w-4" />
-                    Download
-                  </Button>
-                  <Button variant="outline" onClick={sendToContentCreator}>
-                    Send to Content Creator
-                  </Button>
+                  <div className="absolute top-4 right-4 flex gap-2">
+                    <Button onClick={handleDownload}>
+                      <ImageIcon className="mr-2 h-4 w-4" />
+                      Download
+                    </Button>
+                    <Button variant="outline" onClick={sendToContentCreator}>
+                      Send to Content Creator
+                    </Button>
+                  </div>
                 </div>
               </div>
             </CardContent>

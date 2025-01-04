@@ -1,41 +1,35 @@
 import { supabase } from './supabase-client';
-import type { UploadedImage, GeneratedContent } from './types';
+import type { UploadedImage, GeneratedContent, GenerationOptions } from './types';
 import { contentGenerator } from './content-generator';
-
-async function ensureAuthenticated() {
-  const { data: { session }, error } = await supabase.auth.getSession();
-  if (error || !session) {
-    throw new Error('Authentication required');
-  }
-  return session;
-}
 
 export async function uploadAndAnalyzeImage(
   image: UploadedImage,
-  options: {
-    tone?: string;
-    language?: string;
-    platforms?: string[];
-    mode?: 'social' | 'marketplace';
-  }
+  options: GenerationOptions = {}
 ): Promise<GeneratedContent> {
   try {
-    const session = await ensureAuthenticated();
-    
+    // Valider le fichier
+    if (!image.file || !(image.file instanceof File)) {
+      throw new Error('Invalid file provided');
+    }
+
     validateImage(image.file);
 
-    // Generate content using the content generator
-    const content = await contentGenerator.generate(image, {
-      userId: session.user.id,
-      ...options
-    });
+    // Convertir l'image en base64
+    const base64Image = await convertFileToBase64(image.file);
+    
+    // Générer le contenu
+    const content = await contentGenerator.generate({
+      ...image,
+      base64: base64Image
+    }, options);
 
     return content;
+
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'An unknown error occurred';
-    console.error('Error in uploadAndAnalyzeImage:', message);
-    throw new Error(message);
+    console.error('Error analyzing image:', error);
+    throw error instanceof Error ? error : new Error('Failed to analyze image');
   }
+}
 
 function validateImage(file: File) {
   if (!file.type.startsWith('image/')) {
@@ -46,4 +40,12 @@ function validateImage(file: File) {
     throw new Error('File size too large. Maximum size is 20MB.');
   }
 }
+
+function convertFileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }

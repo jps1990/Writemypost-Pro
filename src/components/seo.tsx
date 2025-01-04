@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet-async';
 interface SEOProps {
   title?: string;
   description?: string;
-  keywords?: string[];
+  keywords?: string | string[];
   image?: string;
   url?: string;
   type?: string;
@@ -27,13 +27,16 @@ export function SEO({
 }: SEOProps) {
   const siteTitle = 'WriteMyPost.pro';
   const fullTitle = title === siteTitle ? title : `${title} | ${siteTitle}`;
+  
+  // Convertir les keywords en tableau si c'est une chaîne
+  const keywordsArray = typeof keywords === 'string' ? keywords.split(',').map(k => k.trim()) : keywords;
 
   return (
     <Helmet>
       {/* Basic metadata */}
       <title>{fullTitle}</title>
       <meta name="description" content={description} />
-      <meta name="keywords" content={keywords.join(', ')} />
+      <meta name="keywords" content={keywordsArray.join(', ')} />
       <meta name="author" content={author} />
 
       {/* Open Graph */}

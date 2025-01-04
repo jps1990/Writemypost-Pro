@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/lib/supabase-client';
-import { Lock, X, AlertCircle, Check, AtSign, Ghost, FileText, Youtube, Image, Music, Instagram, Facebook, Twitter, Linkedin } from 'lucide-react';
+import { Lock, X, AlertCircle, Check, AtSign, Ghost, FileText, Youtube, Image, Music, Instagram, Facebook, Twitter, Linkedin, Crop } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -49,7 +49,9 @@ export function ContentCreator() {
     storage.getPreferences().language || ''
   );
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
-  const [focusMode, setFocusMode] = useState<'product' | 'general'>('product');
+  const [focusMode, setFocusMode] = useState<'product' | 'general'>(() => 
+    localStorage.getItem('focusMode') as 'product' | 'general' || 'product'
+  );
   const [isLanguageValid, setIsLanguageValid] = useState(false);
   const languageInputRef = useRef<HTMLInputElement>(null);
 
@@ -90,7 +92,22 @@ export function ContentCreator() {
   const sendToImageResizer = useCallback(() => {
     if (!uploadedImage) return;
     
-    localStorage.setItem('pendingImage', JSON.stringify(uploadedImage));
+    // Convertir en File si ce n'est pas déjà fait
+    const imageData = {
+      file: uploadedImage.file,
+      preview: uploadedImage.preview
+    };
+    
+    localStorage.setItem('pendingImage', JSON.stringify({
+      file: {
+        name: imageData.file.name,
+        type: imageData.file.type,
+        size: imageData.file.size,
+        lastModified: imageData.file.lastModified
+      },
+      preview: imageData.preview
+    }));
+    
     navigate('/tools/image-resizer');
   }, [uploadedImage, navigate]);
 
@@ -112,7 +129,8 @@ export function ContentCreator() {
     
     try {
       const content = await uploadAndAnalyzeImage(image, {
-        userId: (await supabase.auth.getSession()).data.session?.user.id || ''
+        userId: (await supabase.auth.getSession()).data.session?.user.id || '',
+        mode: focusMode
       });
       
       setGeneratedContent(content);
@@ -149,11 +167,13 @@ export function ContentCreator() {
     } finally {
       setIsGenerating(false);
     }
-  }, []);
+  }, [focusMode]);
 
   const handleImageRemove = useCallback(() => {
     setUploadedImage(null);
     setGeneratedContent(null);
+    localStorage.removeItem('analysis_product');
+    localStorage.removeItem('analysis_general');
   }, []);
 
   const handleGenerateContent = useCallback(async () => {
@@ -175,7 +195,8 @@ export function ContentCreator() {
         tone: selectedTone,
         language: targetLanguage,
         platforms: selectedPlatforms,
-        mode: 'social'
+        mode: 'social',
+        userId: (await supabase.auth.getSession()).data.session?.user.id || ''
       });
       
       setGeneratedContent(content);
@@ -257,6 +278,49 @@ export function ContentCreator() {
     }
   }, [generatedContent?.imageAnalysis, selectedTone]);
 
+  // Sauvegarder le focusMode dans localStorage
+  useEffect(() => {
+    localStorage.setItem('focusMode', focusMode);
+  }, [focusMode]);
+
+  // Ajouter la fonction pour changer le mode avec throttling
+  const handleFocusModeChange = useCallback(async (newMode: 'product' | 'general') => {
+    if (newMode === focusMode) return;
+    
+    setFocusMode(newMode);
+    
+    // Si on a une image, on régénère l'analyse
+    if (uploadedImage) {
+      const lastAnalysis = localStorage.getItem(`analysis_${newMode}`);
+      
+      // Si on a déjà une analyse pour ce mode, on l'utilise
+      if (lastAnalysis) {
+        setGeneratedContent(JSON.parse(lastAnalysis));
+        return;
+      }
+      
+      // Sinon, on régénère
+      setIsGenerating(true);
+      try {
+        const content = await uploadAndAnalyzeImage(uploadedImage, {
+          userId: (await supabase.auth.getSession()).data.session?.user.id || '',
+          mode: newMode
+        });
+        
+        setGeneratedContent(content);
+        // Sauvegarder l'analyse pour ce mode
+        localStorage.setItem(`analysis_${newMode}`, JSON.stringify(content));
+        
+        toast.success('Content updated for ' + newMode + ' mode');
+      } catch (error) {
+        console.error('Error updating analysis:', error);
+        toast.error('Failed to update analysis');
+      } finally {
+        setIsGenerating(false);
+      }
+    }
+  }, [focusMode, uploadedImage]);
+
   if (isLoading) {
     return <div className="flex items-center justify-center min-h-[200px]">Loading...</div>;
   }
@@ -283,7 +347,7 @@ export function ContentCreator() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="container py-8">
       <SEO 
         title="Content Creator | AI-Powered Social Media Content Generation"
         description="Create engaging social media content with our AI-powered tools. Generate optimized posts for multiple platforms."
@@ -364,14 +428,16 @@ export function ContentCreator() {
               <Button
                 size="sm"
                 variant={focusMode === 'product' ? 'default' : 'outline'}
-                onClick={() => setFocusMode('product')}
+                onClick={() => handleFocusModeChange('product')}
+                disabled={isGenerating}
               >
                 Product Focus
               </Button>
               <Button
                 size="sm"
                 variant={focusMode === 'general' ? 'default' : 'outline'}
-                onClick={() => setFocusMode('general')}
+                onClick={() => handleFocusModeChange('general')}
+                disabled={isGenerating}
               >
                 General Content
               </Button>
@@ -384,14 +450,22 @@ export function ContentCreator() {
                   className="w-full h-[600px] object-cover"
                 />
                 <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-background/60 via-transparent to-background/60" />
-                <Button
-                  variant="destructive"
-                  size="icon"
-                  className="absolute top-2 right-2"
-                  onClick={handleImageRemove}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                <div className="absolute top-2 right-2 flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={sendToImageResizer}
+                  >
+                    <Crop className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    onClick={handleImageRemove}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             ) : (
               <FileDropzone
@@ -439,24 +513,75 @@ export function ContentCreator() {
           isLoading={isGenerating}
           showEmpty={true}
         />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <HashtagGenerator 
+            hashtags={generatedContent?.social?.hashtags}
+            isLoading={isLoading}
+            showEmpty={true}
+          />
+
+          <SentimentAnalyzer 
+            sentiment={generatedContent?.social?.sentiment}
+            isLoading={isLoading}
+          />
+        </div>
       </div>
 
-      <div className="space-y-4">
-        <h2 className="text-xl font-semibold">Content Details</h2>
-        <Tabs value={contentType} onValueChange={(value) => setContentType(value as 'social' | 'marketplace')}>
-          <TabsList>
-            <TabsTrigger value="social">Social Media</TabsTrigger>
-            <TabsTrigger value="marketplace">Marketplace</TabsTrigger>
-          </TabsList>
-          <TabsContent value="social">
+      <Tabs defaultValue="social">
+        <TabsList>
+          <TabsTrigger value="social">Social Media</TabsTrigger>
+          <TabsTrigger value="marketplace">Marketplace</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="social">
+          <div className="grid gap-4">
             <Card>
               <CardHeader>
-                <CardTitle>Content Details</CardTitle>
+                <CardTitle className="flex items-center justify-between">
+                  Content Details
+                  {selectedTone && (
+                    <Badge variant="secondary" className="bg-purple-100 text-purple-800 hover:bg-purple-200">
+                      {selectedTone}
+                    </Badge>
+                  )}
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Platform</label>
+                    <div className="flex justify-between items-center">
+                      <label className="text-sm font-medium">Platforms</label>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedPlatforms([])}
+                          className="text-xs"
+                        >
+                          Clear All
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedPlatforms([
+                            'instagram',
+                            'facebook',
+                            'twitter',
+                            'linkedin',
+                            'tiktok',
+                            'pinterest',
+                            'youtube',
+                            'threads',
+                            'snapchat',
+                            'medium'
+                          ])}
+                          className="text-xs"
+                        >
+                          Select All
+                        </Button>
+                      </div>
+                    </div>
                     <div className="flex flex-wrap gap-2">
                       {[
                         { id: 'instagram', icon: Instagram, label: 'Instagram' },
@@ -492,6 +617,7 @@ export function ContentCreator() {
                       Select multiple platforms to generate content for all at once
                     </p>
                   </div>
+
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Tone</label>
                     <Select
@@ -541,130 +667,115 @@ export function ContentCreator() {
               </CardContent>
             </Card>
 
-            {/* Résultats de la génération sociale */}
-            {generatedContent?.social && (
-              <div className="mt-8 space-y-6">
-                <div className="grid gap-6 md:grid-cols-2">
-                  <SentimentAnalyzer 
-                    sentiment={generatedContent.social.sentiment}
-                    isLoading={isGenerating}
-                  />
-                  <HashtagGenerator 
-                    hashtags={generatedContent.social.hashtags}
-                    isLoading={isGenerating}
+            <SocialContentGenerator 
+              content={generatedContent?.social?.content}
+              isLoading={isLoading}
+            />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="marketplace">
+          <Card>
+            <CardHeader>
+              <CardTitle>Marketplace Listing</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Category</label>
+                  <Select onValueChange={(value) => setSelectedCategory(value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="electronics">Electronics</SelectItem>
+                      <SelectItem value="fashion">Fashion</SelectItem>
+                      <SelectItem value="home">Home & Garden</SelectItem>
+                      <SelectItem value="sports">Sports & Outdoors</SelectItem>
+                      <SelectItem value="toys">Toys & Games</SelectItem>
+                      <SelectItem value="beauty">Beauty & Personal Care</SelectItem>
+                      <SelectItem value="automotive">Automotive</SelectItem>
+                      <SelectItem value="books">Books & Media</SelectItem>
+                      <SelectItem value="food">Food & Beverages</SelectItem>
+                      <SelectItem value="art">Art & Collectibles</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Platform</label>
+                  <Input 
+                    placeholder="Enter marketplace platform (e.g. Amazon, Etsy, eBay...)"
+                    value={selectedPlatform}
+                    onChange={(e) => setSelectedPlatform(e.target.value)}
                   />
                 </div>
-                <SocialContentGenerator 
-                  content={generatedContent.social}
-                  isLoading={isGenerating}
-                />
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Additional Description</label>
+                  <Textarea 
+                    placeholder="Add any additional details or specific requirements for the listing..."
+                    className="min-h-[100px]"
+                  />
+                </div>
+
+                <Button 
+                  className="w-full" 
+                  disabled={!uploadedImage || isGenerating || !selectedCategory || !selectedPlatform}
+                  onClick={handleGenerateListing}
+                >
+                  {isGenerating ? 'Generating...' : 'Generate Listing'}
+                </Button>
               </div>
-            )}
-          </TabsContent>
+            </CardContent>
+          </Card>
 
-          <TabsContent value="marketplace">
-            <Card>
-              <CardHeader>
-                <CardTitle>Marketplace Listing</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Category</label>
-                    <Select onValueChange={(value) => setSelectedCategory(value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="electronics">Electronics</SelectItem>
-                        <SelectItem value="fashion">Fashion</SelectItem>
-                        <SelectItem value="home">Home & Garden</SelectItem>
-                        <SelectItem value="sports">Sports & Outdoors</SelectItem>
-                        <SelectItem value="toys">Toys & Games</SelectItem>
-                        <SelectItem value="beauty">Beauty & Personal Care</SelectItem>
-                        <SelectItem value="automotive">Automotive</SelectItem>
-                        <SelectItem value="books">Books & Media</SelectItem>
-                        <SelectItem value="food">Food & Beverages</SelectItem>
-                        <SelectItem value="art">Art & Collectibles</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+          {/* Résultats de la génération marketplace */}
+          {generatedContent?.marketplace && (
+            <div className="mt-8">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Generated Listing</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-lg font-semibold">{generatedContent.marketplace.title}</h3>
+                      <p className="text-sm text-muted-foreground mt-1">{generatedContent.marketplace.description}</p>
+                    </div>
 
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Platform</label>
-                    <Input 
-                      placeholder="Enter marketplace platform (e.g. Amazon, Etsy, eBay...)"
-                      value={selectedPlatform}
-                      onChange={(e) => setSelectedPlatform(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Additional Description</label>
-                    <Textarea 
-                      placeholder="Add any additional details or specific requirements for the listing..."
-                      className="min-h-[100px]"
-                    />
-                  </div>
-
-                  <Button 
-                    className="w-full" 
-                    disabled={!uploadedImage || isGenerating || !selectedCategory || !selectedPlatform}
-                    onClick={handleGenerateListing}
-                  >
-                    {isGenerating ? 'Generating...' : 'Generate Listing'}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Résultats de la génération marketplace */}
-            {generatedContent?.marketplace && (
-              <div className="mt-8">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Generated Listing</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-4">
-                      <div>
-                        <h3 className="text-lg font-semibold">{generatedContent.marketplace.title}</h3>
-                        <p className="text-sm text-muted-foreground mt-1">{generatedContent.marketplace.description}</p>
-                      </div>
-
-                      <div className="space-y-2">
-                        <h4 className="text-sm font-medium">Features</h4>
-                        <div className="flex flex-wrap gap-2">
-                          {generatedContent.marketplace.features.map((feature, index) => (
-                            <Badge key={index} variant="secondary">{feature}</Badge>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <h4 className="text-sm font-medium">Technical Details</h4>
-                        <div className="grid gap-2">
-                          {Object.entries(generatedContent.marketplace.technicalDetails).map(([key, value]) => (
-                            <div key={key} className="flex justify-between text-sm">
-                              <span className="font-medium">{key}:</span>
-                              <span>{value}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <h4 className="text-sm font-medium">Price Point</h4>
-                        <Badge variant="outline">{generatedContent.marketplace.pricePoint}</Badge>
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-medium">Features</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {generatedContent.marketplace.features.map((feature, index) => (
+                          <Badge key={index} variant="secondary">{feature}</Badge>
+                        ))}
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
-      </div>
+
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-medium">Technical Details</h4>
+                      <div className="grid gap-2">
+                        {Object.entries(generatedContent.marketplace.technicalDetails).map(([key, value]) => (
+                          <div key={key} className="flex justify-between text-sm">
+                            <span className="font-medium">{key}:</span>
+                            <span>{value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-medium">Price Point</h4>
+                      <Badge variant="outline">{generatedContent.marketplace.pricePoint}</Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
