@@ -75,6 +75,7 @@ export interface GenerationOptions {
   language?: string;
   platforms?: string[];
   mode?: 'social' | 'marketplace';
+  analysisMode?: 'product' | 'general';
   category?: string;
   platform?: string;
   imageAnalysis?: GeneratedContent['imageAnalysis'];
@@ -218,33 +219,65 @@ export interface SimpleSocialContent {
       description: string;
     };
     instagram?: {
-      caption: string;
-      hashtags: string[];
+      feed: {
+        caption: string;
+        hashtags: string[];
+      };
+      story: {
+        text: string;
+        stickers: string[];
+      };
+      reels: {
+        caption: string;
+        hashtags: string[];
+        soundSuggestion: string;
+      };
     };
     facebook?: {
       post: string;
+      story: string;
       hashtags: string[];
     };
     twitter?: {
       tweet: string;
+      thread: string[];
       hashtags: string[];
     };
     linkedin?: {
       post: string;
+      article: string;
       hashtags: string[];
     };
     tiktok?: {
       caption: string;
       hashtags: string[];
+      soundSuggestion: string;
+      effectSuggestions: string[];
     };
     pinterest?: {
+      title: string;
       description: string;
+      boardSuggestions: string[];
       hashtags: string[];
     };
     youtube?: {
       title: string;
       description: string;
       tags: string[];
+      chapters: {
+        title: string;
+        timestamp: string;
+        description: string;
+      }[];
+    };
+    threads?: {
+      post: string;
+      discussion: string;
+      hashtags: string[];
+    };
+    snapchat?: {
+      caption: string;
+      filters: string[];
     };
     email?: {
       subject: string;
@@ -313,31 +346,30 @@ export interface ExtendedSocialContent extends SimpleSocialContent {
   };
 }
 
+export type AnalysisMode = 'product' | 'general';
+
 export interface ImageAnalysis {
   categories: string[];
   tags: string[];
   description: string;
-  technicalDetails: {
+  visualImpact: {
+    composition: string;
+    colors: string[];
+    style: string;
+  };
+  sentiment: {
+    tone: string;
+    emotion: string;
+    keywords: string[];
+  };
+  technicalDetails?: {
     materials: string[];
-    dimensions: string;
     specifications: Record<string, string>;
   };
   marketAnalysis: {
     targetAudience: string[];
+    pricePoint?: string;
     uniqueSellingPoints: string[];
-    pricing: {
-      suggested: number;
-      range: {
-        min: number;
-        max: number;
-      };
-      currency: CurrencyCode;
-      competitivePricing: {
-        low: number;
-        average: number;
-        premium: number;
-      };
-    };
   };
 }
 
@@ -371,7 +403,7 @@ export interface MarketplaceContent {
     benefits: string[];
   };
   platformSpecific: {
-    amazon: {
+    amazon?: {
       bulletPoints: string[];
       searchTerms: string[];
       aplus: {
@@ -379,19 +411,19 @@ export interface MarketplaceContent {
         content: string;
       };
     };
-    etsy: {
+    etsy?: {
       tags: string[];
       story: string;
       materials: string[];
     };
-    ebay: {
+    ebay?: {
       itemSpecifics: {
         brand: string;
         model: string;
         condition: string;
       };
     };
-    shopify: {
+    shopify?: {
       metaTitle: string;
       metaDescription: string;
       collections: string[];
@@ -421,12 +453,84 @@ export interface MarketplaceContent {
         content: string;
       };
     };
-    nurturingSequence: {
+    nurturingSequence: Array<{
       stage: string;
       subject: string;
       content: string;
-    }[];
-    socialMedia: SocialMediaContent;
+    }>;
+    socialMedia: {
+      instagram?: {
+        feed: {
+          caption: string;
+          hashtags: string[];
+        };
+        story: {
+          text: string;
+          stickers: string[];
+        };
+        reels: {
+          caption: string;
+          hashtags: string[];
+          soundSuggestion: string;
+        };
+      };
+      facebook?: {
+        post: string;
+        story: string;
+        hashtags: string[];
+      };
+      twitter?: {
+        tweet: string;
+        thread: string[];
+        hashtags: string[];
+      };
+      tiktok?: {
+        caption: string;
+        hashtags: string[];
+        soundSuggestion: string;
+        effectSuggestions: string[];
+      };
+      linkedin?: {
+        post: string;
+        article: string;
+        hashtags: string[];
+      };
+      pinterest?: {
+        title: string;
+        description: string;
+        boardSuggestions: string[];
+        hashtags: string[];
+      };
+      youtube?: {
+        title: string;
+        description: string;
+        tags: string[];
+        chapters: Array<{
+          title: string;
+          timestamp: string;
+          description: string;
+        }>;
+      };
+      threads?: {
+        post: string;
+        discussion: string;
+        hashtags: string[];
+      };
+      snapchat?: {
+        caption: string;
+        filters: string[];
+      };
+    };
+  };
+  marketAnalysis: {
+    marketSize: string;
+    competitors: {
+      direct: string[];
+      indirect: string[];
+    };
+    trends: string[];
+    opportunities: string[];
+    threats: string[];
   };
 }
 

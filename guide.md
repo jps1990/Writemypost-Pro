@@ -30,6 +30,7 @@
    - Utilise l'analyse d'image
    - Adapte le contenu selon les plateformes sélectionnées
    - Génère hashtags et descriptions optimisées
+   - Bonus: Séquence d'emails marketing incluse!
    
    Plateformes supportées:
    - Instagram (Posts, Stories, Reels)
@@ -40,12 +41,21 @@
    - Pinterest (Pins)
    - YouTube (Titres/Descriptions)
    - Threads (Posts)
+   - Medium (Articles)
+   - Snapchat (Stories)
+
+   Bonus Email Marketing:
+   - Email de bienvenue
+   - Email promotionnel
+   - Email de suivi
+   - Email de réactivation
 
    ### Mode Marketplace
    - Utilise l'analyse d'image
    - Catégorie pré-remplie selon l'analyse
    - Génère des listings optimisés
    - Adapte le contenu selon la plateforme
+   - Inclut des templates d'emails marketing
 
 6. **Styles de ton disponibles**
    - Professionnel (B2B, marques sérieuses)
@@ -84,6 +94,13 @@
    - Adapter le ton par plateforme
    - Utiliser les hashtags stratégiquement
    - Varier les types de contenu
+   - Profiter des templates d'emails bonus
+
+6. **Email Marketing (Bonus)**
+   - Personnaliser chaque template
+   - Adapter le ton selon votre marque
+   - Utiliser les call-to-actions fournis
+   - Suivre la séquence recommandée
 
 ## Résolution de problèmes
 

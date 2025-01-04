@@ -220,6 +220,49 @@ export default function GuidePage() {
                     )}
                   </ul>
                 </section>
+
+                <section>
+                  <h3 className="text-xl font-semibold mb-2">
+                    {language === 'en' ? 'Bonus Features' : 'Fonctionnalités bonus'}
+                  </h3>
+                  <ul className="list-disc pl-6 space-y-2">
+                    {language === 'en' ? (
+                      <>
+                        <li>Email Marketing Sequence:
+                          <ul className="ml-4 mt-2">
+                            <li>Welcome email template</li>
+                            <li>Promotional email template</li>
+                            <li>Follow-up email template</li>
+                            <li>Reactivation email template</li>
+                          </ul>
+                        </li>
+                        <li>Additional Platforms:
+                          <ul className="ml-4 mt-2">
+                            <li>Medium articles</li>
+                            <li>Snapchat stories</li>
+                          </ul>
+                        </li>
+                      </>
+                    ) : (
+                      <>
+                        <li>Séquence Email Marketing:
+                          <ul className="ml-4 mt-2">
+                            <li>Template d'email de bienvenue</li>
+                            <li>Template d'email promotionnel</li>
+                            <li>Template d'email de suivi</li>
+                            <li>Template d'email de réactivation</li>
+                          </ul>
+                        </li>
+                        <li>Plateformes additionnelles:
+                          <ul className="ml-4 mt-2">
+                            <li>Articles Medium</li>
+                            <li>Stories Snapchat</li>
+                          </ul>
+                        </li>
+                      </>
+                    )}
+                  </ul>
+                </section>
               </div>
             </Card>
           </TabsContent>

@@ -1,205 +1,129 @@
-import { OpenAI } from 'openai';
 import type { ImageAnalysis, GenerationOptions, SimpleSocialContent } from '../types';
-import { SOCIAL_MEDIA_PROMPT, SYSTEM_PROMPT } from '../prompts';
+import { SOCIAL_PROMPT, SYSTEM_PROMPT } from '../prompts';
+import { BaseGenerator } from './base-generator';
 
-export class SocialGenerator {
-  private getClient() {
-    return new OpenAI({
-      apiKey: import.meta.env.VITE_OPENAI_API_KEY,
-      dangerouslyAllowBrowser: true
-    });
-  }
-
+export class SocialGenerator extends BaseGenerator {
   async generate(
     analysis: ImageAnalysis,
     options: GenerationOptions
   ): Promise<SimpleSocialContent> {
     try {
-      const openai = this.getClient();
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: `${SYSTEM_PROMPT}\n\nRÈGLE IMPORTANTE: Toutes les réponses doivent être en ${options.language}.\n\n${SOCIAL_MEDIA_PROMPT}`
-          },
-          {
-            role: "user",
-            content: `Generate social media content in ${options.language} ONLY for these specific platforms: ${options.platforms?.join(', ') || 'all platforms'}. DO NOT generate content for other platforms.
-            
+      const result = await this.retryWithExponentialBackoff(
+        async () => {
+          const openai = this.getClient();
+          const response = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [
+              {
+                role: "system",
+                content: `${SYSTEM_PROMPT}\n\nRÈGLE IMPORTANTE: Toutes les réponses doivent être en ${options.language}.\n\n${SOCIAL_PROMPT}`
+              },
+              {
+                role: "user",
+                content: `Generate social media content in ${options.language} ONLY for these specific platforms: ${options.platforms?.join(', ') || 'all platforms'}. DO NOT generate content for other platforms.
+                
 Analysis: ${JSON.stringify(analysis, null, 2)}
+
+Mode d'analyse: ${options.analysisMode === 'product' ? 'Product Focus' : 'General Content'}
+Type de contenu: ${options.analysisMode === 'product' 
+  ? 'Contenu orienté produit - Focus sur les caractéristiques, bénéfices et valeur du produit' 
+  : 'Contenu général - Focus sur le lifestyle, l\'ambiance et le storytelling'}
 
 Additional context: ${options.additionalDescription || 'None provided'}
 Tone: ${options.tone || 'Professional'}
 Industry: ${options.industry || 'General'}
 
-IMPORTANT: Make sure to generate complete content for each selected platform, including all required fields (caption/post, hashtags, etc.).`
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 4000
-      });
+IMPORTANT: 
+- Generate content adapted to ${options.analysisMode === 'product' ? 'product marketing' : 'lifestyle/branding'}
+- Make sure to generate complete content for each selected platform
+- Include all required fields (caption/post, hashtags, etc.)
+- Always include email templates as bonus content`
+              }
+            ],
+            temperature: 0.7,
+            max_tokens: 4000
+          });
 
-      const result = response.choices[0]?.message?.content;
-      if (!result) {
-        throw new Error('No content generated');
-      }
+          const content = response.choices[0]?.message?.content;
+          if (!content) {
+            throw new Error('No content generated');
+          }
+
+          return content;
+        },
+        'social-generator'
+      );
 
       // Nettoyer et valider le JSON
-      const cleanedResult = this.cleanJsonString(result);
+      const parsedContent = await this.cleanAndValidateJson(result, 'social-generator');
       
-      try {
-        // Parse and validate the result
-        const parsedContent = JSON.parse(cleanedResult);
-        
-        // Ensure we have all required fields
-        const validatedContent: SimpleSocialContent = {
-          sentiment: parsedContent.sentiment && {
-            tone: parsedContent.sentiment.tone,
-            emotion: parsedContent.sentiment.emotion,
-            keywords: parsedContent.sentiment.keywords
+      // Ensure we have all required fields
+      const validatedContent: SimpleSocialContent = {
+        sentiment: parsedContent.sentiment && {
+          tone: parsedContent.sentiment.tone,
+          emotion: parsedContent.sentiment.emotion,
+          keywords: parsedContent.sentiment.keywords
+        },
+        hashtags: parsedContent.hashtags && {
+          primary: parsedContent.hashtags.primary,
+          secondary: parsedContent.hashtags.secondary,
+          niche: parsedContent.hashtags.niche
+        },
+        content: {
+          common: parsedContent.content?.common && {
+            title: parsedContent.content.common.title,
+            description: parsedContent.content.common.description
           },
-          hashtags: parsedContent.hashtags && {
-            primary: parsedContent.hashtags.primary,
-            secondary: parsedContent.hashtags.secondary,
-            niche: parsedContent.hashtags.niche
-          },
-          content: {
-            common: parsedContent.content?.common && {
-              title: parsedContent.content.common.title,
-              description: parsedContent.content.common.description
+          // Toujours inclure les emails s'ils existent
+          email: parsedContent.content?.email && {
+            welcome: parsedContent.content.email.welcome && {
+              subject: parsedContent.content.email.welcome.subject,
+              content: parsedContent.content.email.welcome.content
+            },
+            promotional: parsedContent.content.email.promotional && {
+              subject: parsedContent.content.email.promotional.subject,
+              content: parsedContent.content.email.promotional.content
+            },
+            followUp: parsedContent.content.email.followUp && {
+              subject: parsedContent.content.email.followUp.subject,
+              content: parsedContent.content.email.followUp.content
+            },
+            reactivation: parsedContent.content.email.reactivation && {
+              subject: parsedContent.content.email.reactivation.subject,
+              content: parsedContent.content.email.reactivation.content
             }
           }
-        };
+        }
+      };
 
-        // Add platform-specific content only if it exists and was selected
-        if (options.platforms?.includes('instagram') && parsedContent.content?.instagram) {
-          validatedContent.content.instagram = {
-            caption: parsedContent.content.instagram.feed?.caption || "",
-            hashtags: parsedContent.content.instagram.feed?.hashtags || [],
-            story: parsedContent.content.instagram.story,
-            reels: parsedContent.content.instagram.reels
+      // Add platform-specific content for selected platforms
+      const platforms = [
+        'instagram', 'facebook', 'twitter', 'linkedin', 'tiktok', 
+        'pinterest', 'youtube', 'threads', 'snapchat', 'medium'
+      ] as const;
+
+      type Platform = typeof platforms[number];
+
+      // Si une plateforme est dans la réponse ET qu'elle a été sélectionnée, on l'ajoute
+      platforms.forEach(platform => {
+        if (options.platforms?.includes(platform) && parsedContent.content?.[platform]) {
+          const platformContent = parsedContent.content[platform];
+          (validatedContent.content as any)[platform] = {
+            ...platformContent, // Garde tous les champs originaux
+            caption: platformContent.caption || platformContent.post, // Support des deux formats sans placeholder
+            hashtags: platformContent.hashtags,
+            tags: platformContent.tags, // YouTube
+            filters: platformContent.filters, // Snapchat
+            description: platformContent.description // Pinterest/YouTube
           };
         }
+      });
 
-        if (options.platforms?.includes('facebook') && parsedContent.content?.facebook) {
-          validatedContent.content.facebook = {
-            post: parsedContent.content.facebook.post,
-            story: parsedContent.content.facebook.story,
-            hashtags: parsedContent.content.facebook.hashtags
-          };
-        }
-
-        if (options.platforms?.includes('twitter') && parsedContent.content?.twitter) {
-          validatedContent.content.twitter = {
-            tweet: parsedContent.content.twitter.tweet,
-            thread: parsedContent.content.twitter.thread,
-            hashtags: parsedContent.content.twitter.hashtags
-          };
-        }
-
-        if (options.platforms?.includes('linkedin') && parsedContent.content?.linkedin) {
-          validatedContent.content.linkedin = {
-            post: parsedContent.content.linkedin.post,
-            article: parsedContent.content.linkedin.article,
-            hashtags: parsedContent.content.linkedin.hashtags
-          };
-        }
-
-        if (options.platforms?.includes('tiktok') && parsedContent.content?.tiktok) {
-          validatedContent.content.tiktok = {
-            caption: parsedContent.content.tiktok.caption,
-            hashtags: parsedContent.content.tiktok.hashtags,
-            soundSuggestion: parsedContent.content.tiktok.soundSuggestion,
-            effectSuggestions: parsedContent.content.tiktok.effectSuggestions
-          };
-        }
-
-        if (options.platforms?.includes('pinterest') && parsedContent.content?.pinterest) {
-          validatedContent.content.pinterest = {
-            title: parsedContent.content.pinterest.title,
-            description: parsedContent.content.pinterest.description,
-            boardSuggestions: parsedContent.content.pinterest.boardSuggestions,
-            hashtags: parsedContent.content.pinterest.hashtags
-          };
-        }
-
-        if (options.platforms?.includes('youtube') && parsedContent.content?.youtube) {
-          validatedContent.content.youtube = {
-            title: parsedContent.content.youtube.title,
-            description: parsedContent.content.youtube.description,
-            tags: parsedContent.content.youtube.tags,
-            chapters: parsedContent.content.youtube.chapters
-          };
-        }
-
-        if (options.platforms?.includes('threads') && parsedContent.content?.threads) {
-          validatedContent.content.threads = {
-            post: parsedContent.content.threads.post,
-            discussion: parsedContent.content.threads.discussion,
-            hashtags: parsedContent.content.threads.hashtags
-          };
-        }
-
-        if (options.platforms?.includes('snapchat') && parsedContent.content?.snapchat) {
-          validatedContent.content.snapchat = {
-            caption: parsedContent.content.snapchat.caption,
-            filters: parsedContent.content.snapchat.filters
-          };
-        }
-
-        if (options.platforms?.includes('email') && parsedContent.content?.email) {
-          validatedContent.content.email = {
-            subject: parsedContent.content.email.subject,
-            long: parsedContent.content.email.long,
-            medium: parsedContent.content.email.medium,
-            short: parsedContent.content.email.short
-          };
-        }
-
-        return validatedContent;
-
-      } catch (error) {
-        console.error('JSON parsing error:', error);
-        console.error('Raw content:', result);
-        console.error('Cleaned content:', cleanedResult);
-        throw error;
-      }
+      return validatedContent;
 
     } catch (error) {
       console.error('Error generating social content:', error);
       throw error instanceof Error ? error : new Error('Failed to generate social content');
-    }
-  }
-
-  private cleanJsonString(jsonString: string): string {
-    // Enlever tout texte avant le premier {
-    const startIndex = jsonString.indexOf('{');
-    const endIndex = jsonString.lastIndexOf('}');
-    if (startIndex === -1 || endIndex === -1) {
-      throw new Error('Invalid JSON structure');
-    }
-    
-    let cleaned = jsonString.slice(startIndex, endIndex + 1);
-    
-    // Nettoyer les caractères d'échappement mal formés
-    cleaned = cleaned.replace(/\\\\/g, '\\')
-                    .replace(/\\"/g, '"')
-                    .replace(/\n/g, '\\n')
-                    .replace(/\r/g, '\\r')
-                    .replace(/\t/g, '\\t')
-                    .replace(/\\'/g, "'");
-    
-    // Gérer les guillemets non échappés dans les chaînes
-    cleaned = cleaned.replace(/(?<!\\)"/g, '\\"');
-    
-    try {
-      // Valider que c'est du JSON valide
-      JSON.parse(cleaned);
-      return cleaned;
-    } catch (error) {
-      console.error('JSON cleaning failed:', error);
-      throw error;
     }
   }
 } 

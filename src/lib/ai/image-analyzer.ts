@@ -1,27 +1,14 @@
 import { OpenAI } from 'openai';
-import type { UploadedImage, GenerationOptions, ImageAnalysis } from '../types';
+import type { ImageAnalysis, AnalysisMode, UploadedImage, GenerationOptions } from '../types';
 import { IMAGE_ANALYSIS_PROMPT, SYSTEM_PROMPT } from '../prompts';
 
 export class ImageAnalyzer {
-  private getClient() {
-    return new OpenAI({
+  private client: OpenAI;
+
+  constructor() {
+    this.client = new OpenAI({
       apiKey: import.meta.env.VITE_OPENAI_API_KEY,
       dangerouslyAllowBrowser: true
-    });
-  }
-
-  private async convertToBase64(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          resolve(reader.result);
-        } else {
-          reject(new Error('Failed to convert image to base64'));
-        }
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
     });
   }
 
@@ -30,26 +17,36 @@ export class ImageAnalyzer {
     options: GenerationOptions
   ): Promise<ImageAnalysis> {
     try {
-      const base64Image = await this.convertToBase64(image.file);
-      const openai = this.getClient();
-      const response = await openai.chat.completions.create({
+      console.log('🔍 Démarrage de l\'analyse d\'image...', { mode: options.mode, language: options.language });
+      
+      const response = await this.client.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
           {
             role: "system",
-            content: `${SYSTEM_PROMPT}\n\nRÈGLE IMPORTANTE: Toutes les réponses doivent être en ${options.language || 'English'}.\n\n${IMAGE_ANALYSIS_PROMPT}`
+            content: `${SYSTEM_PROMPT}\n\nRÈGLE IMPORTANTE: Toutes les réponses doivent être en ${options.language}.\n\n${IMAGE_ANALYSIS_PROMPT}`
           },
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: `Analyze this image in ${options.language || 'English'}. Consider the following aspects:\n- Visual elements and composition\n- Technical details and specifications\n- Market positioning and target audience`
+                text: `Analyze this image in ${options.language}. 
+                
+Mode d'analyse: ${options.analysisMode === 'product' ? 'Product Focus' : 'General Content'}
+
+${options.analysisMode === 'product' 
+? 'Focus sur les détails du produit, spécifications techniques, prix et positionnement marché.' 
+: 'Focus sur le contexte général, le style de vie, l\'ambiance et le storytelling.'}
+
+${options.mode === 'marketplace' 
+? 'Analyse approfondie pour la vente sur les marketplaces (prix, specs, etc.)' 
+: 'Analyse pour les réseaux sociaux et le contenu marketing'}`
               },
               {
                 type: "image_url",
                 image_url: {
-                  url: base64Image,
+                  url: image.base64,
                   detail: "high"
                 }
               }
@@ -57,19 +54,58 @@ export class ImageAnalyzer {
           }
         ],
         temperature: 0.7,
-        max_tokens: 1000
+        max_tokens: 2000
       });
 
-      const result = response.choices[0]?.message?.content;
-      if (!result) {
-        throw new Error('No analysis generated');
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error('No content generated');
       }
 
-      return JSON.parse(result) as ImageAnalysis;
+      console.log('📝 Réponse brute du LLM:', content);
 
+      try {
+        // Trouver le début et la fin du JSON
+        const jsonStart = content.indexOf('{');
+        const jsonEnd = content.lastIndexOf('}') + 1;
+        const jsonStr = content.slice(jsonStart, jsonEnd);
+        
+        console.log('🧹 JSON nettoyé:', jsonStr);
+        
+        const analysis = JSON.parse(jsonStr) as ImageAnalysis;
+        console.log('✅ Analyse parsée:', analysis);
+
+        // Validation des champs requis
+        if (!analysis.categories || !analysis.description || !analysis.sentiment) {
+          throw new Error('Missing required fields in analysis');
+        }
+        
+        return {
+          ...analysis,
+          // Ajouter des champs par défaut si manquants
+          visualImpact: analysis.visualImpact || {
+            composition: "",
+            colors: [],
+            style: ""
+          },
+          technicalDetails: options.analysisMode === 'product' ? (analysis.technicalDetails || {
+            materials: [],
+            specifications: {}
+          }) : undefined,
+          marketAnalysis: {
+            targetAudience: analysis.marketAnalysis?.targetAudience || [],
+            pricePoint: options.analysisMode === 'product' ? (analysis.marketAnalysis?.pricePoint || 'mid-range') : undefined,
+            uniqueSellingPoints: analysis.marketAnalysis?.uniqueSellingPoints || []
+          }
+        };
+      } catch (parseError) {
+        console.error('❌ Erreur de parsing JSON:', parseError);
+        console.error('Contenu problématique:', content);
+        throw new Error('Failed to parse analysis response');
+      }
     } catch (error) {
-      console.error('Error analyzing image:', error);
-      throw error instanceof Error ? error : new Error('Failed to analyze image');
+      console.error('❌ Erreur d\'analyse:', error);
+      throw error;
     }
   }
 } 
