@@ -88,6 +88,12 @@ ${options.mode === 'marketplace'
             colors: [],
             style: ""
           },
+          sentiment: {
+            ...analysis.sentiment,
+            positive: analysis.sentiment?.positive || 0,
+            neutral: analysis.sentiment?.neutral || 0,
+            negative: analysis.sentiment?.negative || 0
+          },
           technicalDetails: options.analysisMode === 'product' ? (analysis.technicalDetails || {
             materials: [],
             specifications: {}
