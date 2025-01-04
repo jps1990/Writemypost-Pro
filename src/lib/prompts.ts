@@ -112,6 +112,9 @@ DIRECTIVES IMPORTANTES:
     }
   },
   "sentiment": {
+    "positive": "number (0-100)",
+    "neutral": "number (0-100)", 
+    "negative": "number (0-100)",
     "tone": "string",
     "emotion": "string",
     "keywords": ["string"]

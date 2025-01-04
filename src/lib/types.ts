@@ -358,6 +358,9 @@ export interface ImageAnalysis {
     style: string;
   };
   sentiment: {
+    positive: number;
+    neutral: number;
+    negative: number;
     tone: string;
     emotion: string;
     keywords: string[];
