@@ -36,6 +36,7 @@ export function ContentCreator() {
   const [uploadedImage, setUploadedImage] = useState<UploadedImage | null>(null);
   const [generatedContent, setGeneratedContent] = useState<GeneratedContent | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [hasReanalyzed, setHasReanalyzed] = useState(false);
   const [contentType, setContentType] = useState<'social' | 'marketplace'>('social');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedPlatform, setSelectedPlatform] = useState<string>('');
@@ -55,6 +56,7 @@ export function ContentCreator() {
   );
   const [isLanguageValid, setIsLanguageValid] = useState(false);
   const languageInputRef = useRef<HTMLInputElement>(null);
+  const [analyzedFocuses, setAnalyzedFocuses] = useState<('product' | 'general')[]>([]);
 
   useEffect(() => {
     async function checkAuth() {
@@ -127,22 +129,25 @@ export function ContentCreator() {
   const handleImageUpload = useCallback(async (image: UploadedImage) => {
     setUploadedImage(image);
     setIsGenerating(true);
+    setAnalyzedFocuses([]); // Reset analyzed focuses for new image
     
     try {
-      const content = await uploadAndAnalyzeImage(image, {
+      const analysis = await analyzeImage(image, {
         userId: (await supabase.auth.getSession()).data.session?.user.id || '',
-        mode: focusMode
+        analysisMode: focusMode,
+        language: targetLanguage
       });
       
-      setGeneratedContent(content);
+      setGeneratedContent({ imageAnalysis: analysis });
+      setAnalyzedFocuses([focusMode]); // Mark current focus as analyzed
       
       // Update tone if suggested by analysis
-      if (content.imageAnalysis?.marketAnalysis?.targetAudience) {
-        const audience = content.imageAnalysis.marketAnalysis.targetAudience;
+      if (analysis?.marketAnalysis?.targetAudience) {
+        const audience = analysis.marketAnalysis.targetAudience;
         const audienceString = audience.join(' ').toLowerCase();
         
         let suggestedTone = '';
-        if (audienceString.includes('luxury') || content.imageAnalysis.marketAnalysis.pricePoint === 'luxury') {
+        if (audienceString.includes('luxury') || analysis.marketAnalysis.pricePoint === 'luxury') {
           suggestedTone = 'luxury';
         } else if (audienceString.includes('professional')) {
           suggestedTone = 'professional';
@@ -168,22 +173,48 @@ export function ContentCreator() {
     } finally {
       setIsGenerating(false);
     }
-  }, [focusMode]);
+  }, [focusMode, targetLanguage]);
+
+  const handleFocusChange = useCallback(async (newFocus: 'product' | 'general') => {
+    if (!uploadedImage || analyzedFocuses.includes(newFocus)) return;
+    
+    setFocusMode(newFocus);
+    localStorage.setItem('focusMode', newFocus);
+    setIsGenerating(true);
+    
+    try {
+      const analysis = await analyzeImage(uploadedImage, {
+        userId: (await supabase.auth.getSession()).data.session?.user.id || '',
+        analysisMode: newFocus,
+        language: targetLanguage
+      });
+      
+      setGeneratedContent({ imageAnalysis: analysis });
+      setAnalyzedFocuses(prev => [...prev, newFocus]); // Add new focus to analyzed list
+      toast.success('Image reanalyzed with new focus');
+    } catch (error) {
+      console.error('Error reanalyzing image:', error);
+      const message = error instanceof Error ? error.message : 'Failed to reanalyze image';
+      toast.error(message);
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [uploadedImage, targetLanguage, analyzedFocuses]);
 
   const handleImageRemove = useCallback(() => {
     setUploadedImage(null);
     setGeneratedContent(null);
-    localStorage.removeItem('analysis_product');
-    localStorage.removeItem('analysis_general');
+    setAnalyzedFocuses([]); // Reset analyzed focuses when removing image
   }, []);
 
   const handleGenerateContent = useCallback(async () => {
+    if (!generatedContent?.imageAnalysis) {
+      toast.error('Please upload and analyze an image first');
+      return;
+    }
+
     setIsGenerating(true);
     try {
-      if (!uploadedImage) {
-        throw new Error('Please upload an image first');
-      }
-      
       if (!selectedPlatforms.length) {
         throw new Error('Please select at least one platform');
       }
@@ -192,7 +223,7 @@ export function ContentCreator() {
         throw new Error('Please select a content tone');
       }
       
-      const content = await uploadAndAnalyzeImage(uploadedImage, {
+      const content = await generateContent(generatedContent.imageAnalysis, {
         tone: selectedTone,
         language: targetLanguage,
         platforms: selectedPlatforms,
@@ -201,11 +232,7 @@ export function ContentCreator() {
       });
       
       setGeneratedContent(content);
-      toast.success('Content generated successfully', {
-        duration: 4000,
-        position: 'top-center',
-        variant: 'success'
-      } as ToastOptions);
+      toast.success('Content generated successfully');
     } catch (error) {
       console.error('Error generating content:', error);
       const message = error instanceof Error ? error.message : 'Failed to generate content';
@@ -213,15 +240,16 @@ export function ContentCreator() {
     } finally {
       setIsGenerating(false);
     }
-  }, [uploadedImage, selectedPlatforms, selectedTone, targetLanguage]);
+  }, [generatedContent?.imageAnalysis, selectedPlatforms, selectedTone, targetLanguage]);
   
   const handleGenerateListing = useCallback(async () => {
+    if (!generatedContent?.imageAnalysis) {
+      toast.error('Please upload and analyze an image first');
+      return;
+    }
+
     setIsGenerating(true);
     try {
-      if (!uploadedImage) {
-        throw new Error('Please upload an image first');
-      }
-
       if (!selectedCategory) {
         throw new Error('Please select a category');
       }
@@ -230,7 +258,7 @@ export function ContentCreator() {
         throw new Error('Please select a platform');
       }
 
-      const content = await uploadAndAnalyzeImage(uploadedImage, {
+      const content = await generateContent(generatedContent.imageAnalysis, {
         tone: selectedTone,
         language: targetLanguage,
         category: selectedCategory,
@@ -239,11 +267,7 @@ export function ContentCreator() {
       });
 
       setGeneratedContent(content);
-      toast.success('Listing generated successfully', {
-        duration: 4000,
-        position: 'top-center',
-        variant: 'success'
-      } as ToastOptions);
+      toast.success('Listing generated successfully');
     } catch (error) {
       console.error('Error generating listing:', error);
       const message = error instanceof Error ? error.message : 'Failed to generate listing';
@@ -251,7 +275,7 @@ export function ContentCreator() {
     } finally {
       setIsGenerating(false);
     }
-  }, [uploadedImage, selectedCategory, selectedPlatform, selectedTone, targetLanguage]);
+  }, [generatedContent?.imageAnalysis, selectedCategory, selectedPlatform, selectedTone, targetLanguage]);
 
   const handlePlatformSelect = useCallback((platform: string) => {
     setSelectedPlatform(platform);
@@ -283,44 +307,6 @@ export function ContentCreator() {
   useEffect(() => {
     localStorage.setItem('focusMode', focusMode);
   }, [focusMode]);
-
-  // Ajouter la fonction pour changer le mode avec throttling
-  const handleFocusModeChange = useCallback(async (newMode: 'product' | 'general') => {
-    if (newMode === focusMode) return;
-    
-    setFocusMode(newMode);
-    
-    // Si on a une image, on régénère l'analyse
-    if (uploadedImage) {
-      const lastAnalysis = localStorage.getItem(`analysis_${newMode}`);
-      
-      // Si on a déjà une analyse pour ce mode, on l'utilise
-      if (lastAnalysis) {
-        setGeneratedContent(JSON.parse(lastAnalysis));
-        return;
-      }
-      
-      // Sinon, on régénère
-      setIsGenerating(true);
-      try {
-        const content = await uploadAndAnalyzeImage(uploadedImage, {
-          userId: (await supabase.auth.getSession()).data.session?.user.id || '',
-          mode: newMode
-        });
-        
-        setGeneratedContent(content);
-        // Sauvegarder l'analyse pour ce mode
-        localStorage.setItem(`analysis_${newMode}`, JSON.stringify(content));
-        
-        toast.success('Content updated for ' + newMode + ' mode');
-      } catch (error) {
-        console.error('Error updating analysis:', error);
-        toast.error('Failed to update analysis');
-      } finally {
-        setIsGenerating(false);
-      }
-    }
-  }, [focusMode, uploadedImage]);
 
   if (isLoading) {
     return <div className="flex items-center justify-center min-h-[200px]">Loading...</div>;
@@ -429,18 +415,18 @@ export function ContentCreator() {
               <Button
                 size="sm"
                 variant={focusMode === 'product' ? 'default' : 'outline'}
-                onClick={() => handleFocusModeChange('product')}
-                disabled={isGenerating}
+                onClick={() => handleFocusChange('product')}
+                disabled={isGenerating || analyzedFocuses.includes('product')}
               >
-                Product Focus
+                Product {analyzedFocuses.includes('product') && '✓'}
               </Button>
               <Button
                 size="sm"
                 variant={focusMode === 'general' ? 'default' : 'outline'}
-                onClick={() => handleFocusModeChange('general')}
-                disabled={isGenerating}
+                onClick={() => handleFocusChange('general')}
+                disabled={isGenerating || analyzedFocuses.includes('general')}
               >
-                General Content
+                General {analyzedFocuses.includes('general') && '✓'}
               </Button>
             </div>
             {uploadedImage ? (

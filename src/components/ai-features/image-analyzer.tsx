@@ -112,7 +112,7 @@ export function ImageAnalyzer({ imageUrl, analysis, isLoading, showEmpty = false
                   {Object.entries(analysis.technicalDetails?.specifications || {}).map(([key, value]) => (
                     <p key={key} className="text-sm flex items-center break-words">
                       <span className="inline-block w-2 h-2 rounded-full bg-primary/20 mr-2" />
-                      {key}: {typeof value === 'object' ? JSON.stringify(value) : value}
+                      {key}: {typeof value === 'object' ? Object.entries(value).map(([k, v]) => `${k}: ${v}`).join(', ') : value}
                     </p>
                   ))}
                 </div>
@@ -124,12 +124,19 @@ export function ImageAnalyzer({ imageUrl, analysis, isLoading, showEmpty = false
                   Market Analysis
                 </h4>
                 <div className="space-y-2 min-w-[200px]">
-                  <div className="mb-2">
-                    <span className="text-sm font-medium">Price Point:</span>
-                    <Badge variant="outline" className="ml-2">
-                      {analysis.marketAnalysis?.pricePoint}
-                    </Badge>
-                  </div>
+                  {analysis.marketAnalysis?.pricing && (
+                    <div className="mb-2">
+                      <span className="text-sm font-medium">Pricing:</span>
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        <Badge variant="outline">
+                          Suggested: {analysis.marketAnalysis.pricing.currency} {analysis.marketAnalysis.pricing.suggested}
+                        </Badge>
+                        <Badge variant="outline">
+                          Range: {analysis.marketAnalysis.pricing.currency} {analysis.marketAnalysis.pricing.range.min} - {analysis.marketAnalysis.pricing.range.max}
+                        </Badge>
+                      </div>
+                    </div>
+                  )}
                   <div className="mb-2">
                     <span className="text-sm font-medium">Target Audience:</span>
                     <div className="mt-1 flex flex-wrap gap-2">

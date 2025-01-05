@@ -6,15 +6,24 @@ export class ContentGenerator {
   private socialGenerator = new SocialGenerator();
   private marketplaceGenerator = new MarketplaceGenerator();
 
-  async generate(
+  async analyze(
     image: UploadedImage,
+    options: GenerationOptions
+  ): Promise<GeneratedContent['imageAnalysis']> {
+    try {
+      return await this.imageAnalyzer.analyze(image, options);
+    } catch (error) {
+      console.error('Image analysis error:', error);
+      throw error;
+    }
+  }
+
+  async generateContent(
+    analysis: GeneratedContent['imageAnalysis'],
     options: GenerationOptions
   ): Promise<GeneratedContent> {
     try {
-      // 1. Analyse initiale de l'image
-      const analysis = await this.imageAnalyzer.analyze(image, options);
-
-      // 2. Générer le contenu selon le mode
+      // Générer le contenu selon le mode
       if (options.mode === 'social') {
         const socialContent = await this.socialGenerator.generate(analysis, options);
         return {

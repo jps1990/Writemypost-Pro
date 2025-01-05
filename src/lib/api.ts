@@ -2,10 +2,10 @@ import { supabase } from './supabase-client';
 import type { UploadedImage, GeneratedContent, GenerationOptions } from './types';
 import { contentGenerator } from './content-generator';
 
-export async function uploadAndAnalyzeImage(
+export async function analyzeImage(
   image: UploadedImage,
   options: GenerationOptions = {}
-): Promise<GeneratedContent> {
+): Promise<GeneratedContent['imageAnalysis']> {
   try {
     // Valider le fichier
     if (!image.file || !(image.file instanceof File)) {
@@ -17,17 +17,29 @@ export async function uploadAndAnalyzeImage(
     // Convertir l'image en base64
     const base64Image = await convertFileToBase64(image.file);
     
-    // Générer le contenu
-    const content = await contentGenerator.generate({
+    // Analyser l'image
+    const analysis = await contentGenerator.analyze({
       ...image,
       base64: base64Image
     }, options);
 
-    return content;
+    return analysis;
 
   } catch (error) {
     console.error('Error analyzing image:', error);
     throw error instanceof Error ? error : new Error('Failed to analyze image');
+  }
+}
+
+export async function generateContent(
+  analysis: GeneratedContent['imageAnalysis'],
+  options: GenerationOptions = {}
+): Promise<GeneratedContent> {
+  try {
+    return await contentGenerator.generateContent(analysis, options);
+  } catch (error) {
+    console.error('Error generating content:', error);
+    throw error instanceof Error ? error : new Error('Failed to generate content');
   }
 }
 

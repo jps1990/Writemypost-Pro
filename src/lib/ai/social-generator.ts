@@ -105,7 +105,7 @@ IMPORTANT:
       type Platform = typeof platforms[number];
 
       // Si une plateforme est dans la réponse ET qu'elle a été sélectionnée, on l'ajoute
-      platforms.forEach(platform => {
+      platforms.forEach((platform: Platform) => {
         if (options.platforms?.includes(platform) && parsedContent.content?.[platform]) {
           const platformContent = parsedContent.content[platform];
           (validatedContent.content as any)[platform] = {
