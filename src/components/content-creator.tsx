@@ -27,6 +27,7 @@ import { toast } from 'sonner';
 import { SEO } from '@/components/seo';
 import { storage } from '@/lib/storage';
 import { Badge } from '@/components/ui/badge';
+import { MarketplaceContent } from './ai-features/marketplace-content';
 
 export function ContentCreator() {
   const navigate = useNavigate();
@@ -522,8 +523,9 @@ export function ContentCreator() {
           />
 
           <SentimentAnalyzer 
-            sentiment={generatedContent?.social?.sentiment}
+            sentiment={generatedContent?.imageAnalysis?.sentiment}
             isLoading={isLoading}
+            showEmpty={true}
           />
         </div>
       </div>

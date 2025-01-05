@@ -82,26 +82,38 @@ ${options.mode === 'marketplace'
         
         return {
           ...analysis,
-          // Ajouter des champs par défaut si manquants
           visualImpact: analysis.visualImpact || {
             composition: "",
             colors: [],
             style: ""
           },
-          sentiment: {
+          sentiment: analysis.sentiment ? {
             ...analysis.sentiment,
-            positive: analysis.sentiment?.positive || 0,
-            neutral: analysis.sentiment?.neutral || 0,
-            negative: analysis.sentiment?.negative || 0
+            positive: analysis.sentiment.positive || 0,
+            neutral: analysis.sentiment.neutral || 0,
+            negative: analysis.sentiment.negative || 0
+          } : undefined,
+          technicalDetails: {
+            materials: analysis.technicalDetails?.materials || [],
+            dimensions: analysis.technicalDetails?.dimensions || "",
+            specifications: analysis.technicalDetails?.specifications || {}
           },
-          technicalDetails: options.analysisMode === 'product' ? (analysis.technicalDetails || {
-            materials: [],
-            specifications: {}
-          }) : undefined,
           marketAnalysis: {
             targetAudience: analysis.marketAnalysis?.targetAudience || [],
-            pricePoint: options.analysisMode === 'product' ? (analysis.marketAnalysis?.pricePoint || 'mid-range') : undefined,
-            uniqueSellingPoints: analysis.marketAnalysis?.uniqueSellingPoints || []
+            uniqueSellingPoints: analysis.marketAnalysis?.uniqueSellingPoints || [],
+            pricing: analysis.marketAnalysis?.pricing || {
+              suggested: 0,
+              range: {
+                min: 0,
+                max: 0
+              },
+              currency: options.currency || 'USD',
+              competitivePricing: {
+                low: 0,
+                average: 0,
+                premium: 0
+              }
+            }
           }
         };
       } catch (parseError) {

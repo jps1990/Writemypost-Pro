@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Sparkles, Loader2, Palette, Box, Target, Upload } from 'lucide-react';
+import { Sparkles, Loader2, Palette, Box, Target, Upload, Image } from 'lucide-react';
 import type { GeneratedContent } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -68,6 +68,31 @@ export function ImageAnalyzer({ imageUrl, analysis, isLoading, showEmpty = false
 
               <div className="space-y-2">
                 <h4 className="text-sm font-medium flex items-center">
+                  <Image className="mr-2 h-4 w-4" />
+                  Visual Impact
+                </h4>
+                <div className="space-y-4 min-w-[200px]">
+                  <div>
+                    <span className="text-sm font-medium">Composition:</span>
+                    <p className="text-sm text-muted-foreground mt-1">{analysis.visualImpact?.composition}</p>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium">Style:</span>
+                    <p className="text-sm text-muted-foreground mt-1">{analysis.visualImpact?.style}</p>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium">Colors:</span>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {analysis.visualImpact?.colors?.map((color) => (
+                        <Badge key={color} variant="outline">{color}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium flex items-center">
                   <Box className="mr-2 h-4 w-4" />
                   Technical Details
                 </h4>
@@ -78,10 +103,16 @@ export function ImageAnalyzer({ imageUrl, analysis, isLoading, showEmpty = false
                       {material}
                     </p>
                   ))}
+                  {analysis.technicalDetails?.dimensions && (
+                    <p className="text-sm flex items-center break-words">
+                      <span className="inline-block w-2 h-2 rounded-full bg-primary/20 mr-2" />
+                      Dimensions: {analysis.technicalDetails.dimensions}
+                    </p>
+                  )}
                   {Object.entries(analysis.technicalDetails?.specifications || {}).map(([key, value]) => (
                     <p key={key} className="text-sm flex items-center break-words">
                       <span className="inline-block w-2 h-2 rounded-full bg-primary/20 mr-2" />
-                      {key}: {value}
+                      {key}: {typeof value === 'object' ? JSON.stringify(value) : value}
                     </p>
                   ))}
                 </div>

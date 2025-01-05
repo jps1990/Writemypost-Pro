@@ -5,6 +5,11 @@ export interface GeneratedContent {
     categories: string[];
     tags: string[];
     description: string;
+    visualImpact: {
+      composition: string;
+      style: string;
+      colors: string[];
+    };
     technicalDetails: {
       materials: string[];
       dimensions: string;
@@ -354,25 +359,38 @@ export interface ImageAnalysis {
   description: string;
   visualImpact: {
     composition: string;
-    colors: string[];
     style: string;
+    colors: string[];
   };
-  sentiment: {
+  technicalDetails: {
+    materials: string[];
+    dimensions: string;
+    specifications: Record<string, string>;
+  };
+  marketAnalysis: {
+    targetAudience: string[];
+    uniqueSellingPoints: string[];
+    pricing: {
+      suggested: number;
+      range: {
+        min: number;
+        max: number;
+      };
+      currency: CurrencyCode;
+      competitivePricing: {
+        low: number;
+        average: number;
+        premium: number;
+      };
+    };
+  };
+  sentiment?: {
     positive: number;
     neutral: number;
     negative: number;
     tone: string;
     emotion: string;
     keywords: string[];
-  };
-  technicalDetails?: {
-    materials: string[];
-    specifications: Record<string, string>;
-  };
-  marketAnalysis: {
-    targetAudience: string[];
-    pricePoint?: string;
-    uniqueSellingPoints: string[];
   };
 }
 
