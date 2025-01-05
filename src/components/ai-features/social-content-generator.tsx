@@ -37,24 +37,29 @@ export function SocialContentGenerator({ content, isLoading }: SocialContentGene
       <CardContent>
         {content ? (
           <div className="space-y-6">
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium">Common Content</h4>
-              <div className="rounded-md border p-4 space-y-2">
-                <p className="text-sm font-medium">{content.common?.title || ''}</p>
-                <p className="text-sm text-muted-foreground">{content.common?.description || ''}</p>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className="mt-2"
-                  onClick={() => copyToClipboard(`${content.common?.title}\n\n${content.common?.description}`)}
-                >
-                  <Copy className="mr-2 h-4 w-4" />
-                  Copy
-                </Button>
+            {/* Common Content Section */}
+            {content.common && (
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium">Common Content</h4>
+                <div className="rounded-md border p-4 space-y-2">
+                  <p className="text-sm font-medium">{content.common.title}</p>
+                  <p className="text-sm text-muted-foreground">{content.common.description}</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="mt-2"
+                    onClick={() => content.common && copyToClipboard(
+                      `${content.common.title}\n\n${content.common.description}`
+                    )}
+                  >
+                    <Copy className="mr-2 h-4 w-4" />
+                    Copy
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Instagram */}
+            {/* Instagram Section */}
             {content.instagram && (
               <div className="space-y-2">
                 <h4 className="text-sm font-medium flex items-center gap-2">
@@ -62,28 +67,92 @@ export function SocialContentGenerator({ content, isLoading }: SocialContentGene
                   Instagram
                 </h4>
                 <div className="rounded-md border p-4 space-y-4">
-                  <div>
-                    <p className="text-sm font-medium mb-1">Caption</p>
-                    <p className="text-sm whitespace-pre-wrap">{content.instagram.caption}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium mb-1">Hashtags</p>
-                    <div className="flex flex-wrap gap-2">
-                      {content.instagram.hashtags?.map(tag => (
-                        <Badge key={tag} variant="secondary">
-                          {tag.startsWith('#') ? tag : `#${tag}`}
-                        </Badge>
-                      ))}
+                  {/* Feed */}
+                  {content.instagram?.feed && (
+                    <div>
+                      <p className="text-sm font-medium mb-1">Feed Caption</p>
+                      <p className="text-sm whitespace-pre-wrap">{content.instagram.feed.caption}</p>
+                      <div className="mt-2">
+                        <p className="text-sm font-medium mb-1">Feed Hashtags</p>
+                        <div className="flex flex-wrap gap-2">
+                          {content.instagram.feed.hashtags?.map(tag => (
+                            <Badge key={tag} variant="secondary">
+                              {tag.startsWith('#') ? tag : `#${tag}`}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="mt-2"
+                        onClick={() => content.instagram?.feed && copyToClipboard(
+                          `${content.instagram.feed.caption}\n\n${formatHashtags(content.instagram.feed.hashtags || [])}`
+                        )}
+                      >
+                        <Copy className="mr-2 h-4 w-4" />
+                        Copy Feed with Hashtags
+                      </Button>
                     </div>
-                  </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => copyToClipboard(`${content.instagram?.caption}\n\n${formatHashtags(content.instagram?.hashtags || [])}`)}
-                  >
-                    <Copy className="mr-2 h-4 w-4" />
-                    Copy with Hashtags
-                  </Button>
+                  )}
+                  
+                  {/* Story */}
+                  {content.instagram?.story && (
+                    <div>
+                      <p className="text-sm font-medium mb-1">Story Text</p>
+                      <p className="text-sm whitespace-pre-wrap">{content.instagram.story.text}</p>
+                      <div className="mt-2">
+                        <p className="text-sm font-medium mb-1">Story Stickers</p>
+                        <div className="flex flex-wrap gap-2">
+                          {content.instagram.story.stickers?.map(sticker => (
+                            <Badge key={sticker} variant="secondary">{sticker}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="mt-2"
+                        onClick={() => content.instagram?.story && copyToClipboard(
+                          `${content.instagram.story.text}\n\nStickers: ${content.instagram.story.stickers.join(', ')}`
+                        )}
+                      >
+                        <Copy className="mr-2 h-4 w-4" />
+                        Copy Story with Stickers
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Reels */}
+                  {content.instagram?.reels && (
+                    <div>
+                      <p className="text-sm font-medium mb-1">Reels Caption</p>
+                      <p className="text-sm whitespace-pre-wrap">{content.instagram.reels.caption}</p>
+                      <div className="mt-2">
+                        <p className="text-sm font-medium mb-1">Reels Hashtags</p>
+                        <div className="flex flex-wrap gap-2">
+                          {content.instagram.reels.hashtags?.map(tag => (
+                            <Badge key={tag} variant="secondary">
+                              {tag.startsWith('#') ? tag : `#${tag}`}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                      <p className="text-sm font-medium mt-2">Sound Suggestion</p>
+                      <p className="text-sm">{content.instagram.reels.soundSuggestion}</p>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="mt-2"
+                        onClick={() => content.instagram?.reels && copyToClipboard(
+                          `${content.instagram.reels.caption}\n\n${formatHashtags(content.instagram.reels.hashtags || [])}\n\nSound: ${content.instagram.reels.soundSuggestion}`
+                        )}
+                      >
+                        <Copy className="mr-2 h-4 w-4" />
+                        Copy Reels with Hashtags
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -337,13 +406,11 @@ export function SocialContentGenerator({ content, isLoading }: SocialContentGene
               </div>
             )}
           </div>
-        ) : (
-          <div className="text-center py-4">
-            <p className="text-sm text-muted-foreground">
-              {isLoading ? 'Generating social media content...' : 'Upload an image to generate social media content'}
-            </p>
+        ) : isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin" />
           </div>
-        )}
+        ) : null}
       </CardContent>
     </Card>
   );

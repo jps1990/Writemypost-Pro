@@ -208,18 +208,18 @@ export interface SocialMediaContent {
 }
 
 export interface SimpleSocialContent {
-  sentiment: {
+  sentiment?: {
     tone: string;
     emotion: string;
     keywords: string[];
   };
-  hashtags: {
-    primary: string[];
-    secondary: string[];
+  hashtags?: {
+    recommended: string[];
     niche: string[];
+    trending: string[];
   };
   content: {
-    common: {
+    common?: {
       title: string;
       description: string;
     };
