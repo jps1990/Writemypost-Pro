@@ -2,6 +2,7 @@ import type { UserPreferences } from './types';
 
 const STORAGE_KEYS = {
   PREFERENCES: 'user_preferences',
+  BRAND_NAME: 'brand_name',
 } as const;
 
 export const storage = {
@@ -18,5 +19,13 @@ export const storage = {
     const prefs = this.getPreferences();
     prefs[key] = value;
     this.savePreferences(prefs);
+  },
+
+  getBrandName(): string {
+    return localStorage.getItem(STORAGE_KEYS.BRAND_NAME) || '';
+  },
+
+  setBrandName(name: string) {
+    localStorage.setItem(STORAGE_KEYS.BRAND_NAME, name);
   }
 };

@@ -23,15 +23,19 @@ export class ContentGenerator {
     options: GenerationOptions
   ): Promise<GeneratedContent> {
     try {
+      console.log('Generating content with options:', options);
+
       // Générer le contenu selon le mode
       if (options.mode === 'social') {
         const socialContent = await this.socialGenerator.generate(analysis, options);
+        console.log('Generated social content:', socialContent);
         return {
           imageAnalysis: analysis,
           social: socialContent
         };
       } else if (options.mode === 'marketplace') {
         const marketplaceContent = await this.marketplaceGenerator.generate(analysis, options);
+        console.log('Generated marketplace content:', marketplaceContent);
         return {
           imageAnalysis: analysis,
           marketplace: marketplaceContent

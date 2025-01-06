@@ -16,6 +16,18 @@ export class ImageAnalyzer {
     image: UploadedImage,
     options: GenerationOptions
   ): Promise<ImageAnalysis> {
+    if (!image?.base64) {
+      throw new Error('No image data provided');
+    }
+
+    if (!options.language?.trim()) {
+      throw new Error('Target language is required');
+    }
+
+    if (!options.analysisMode) {
+      throw new Error('Analysis mode is required');
+    }
+
     try {
       console.log('🔍 Démarrage de l\'analyse d\'image...', { mode: options.mode, language: options.language });
       
@@ -62,18 +74,23 @@ ${options.mode === 'marketplace'
         throw new Error('No content generated');
       }
 
-      console.log('📝 Réponse brute du LLM:', content);
+      console.log('📝 Raw LLM response:', content);
 
       try {
         // Trouver le début et la fin du JSON
         const jsonStart = content.indexOf('{');
         const jsonEnd = content.lastIndexOf('}') + 1;
+        
+        if (jsonStart === -1 || jsonEnd <= jsonStart) {
+          throw new Error('Invalid JSON response format');
+        }
+        
         const jsonStr = content.slice(jsonStart, jsonEnd);
         
-        console.log('🧹 JSON nettoyé:', jsonStr);
+        console.log('🧹 Cleaned JSON:', jsonStr);
         
         const analysis = JSON.parse(jsonStr) as ImageAnalysis;
-        console.log('✅ Analyse parsée:', analysis);
+        console.log('✅ Parsed analysis:', analysis);
 
         // Validation des champs requis
         if (!analysis.categories || !analysis.description || !analysis.sentiment) {

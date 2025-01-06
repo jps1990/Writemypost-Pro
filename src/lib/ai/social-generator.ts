@@ -8,6 +8,12 @@ export class SocialGenerator extends BaseGenerator {
     options: GenerationOptions
   ): Promise<SimpleSocialContent> {
     try {
+      console.log('Starting social content generation with options:', options);
+      
+      // Always include email templates
+      const platformsWithEmail = [...(options.platforms || []), 'email'];
+      options.platforms = platformsWithEmail;
+      
       const result = await this.retryWithExponentialBackoff(
         async () => {
           const openai = this.getClient();
@@ -22,6 +28,8 @@ export class SocialGenerator extends BaseGenerator {
                 role: "user",
                 content: `Generate social media content in ${options.language} ONLY for these specific platforms: ${options.platforms?.join(', ') || 'all platforms'}. DO NOT generate content for other platforms.
                 
+Brand Name: ${options.brandName ? options.brandName : 'Not specified'}
+
 Analysis: ${JSON.stringify(analysis, null, 2)}
 
 Mode d'analyse: ${options.analysisMode === 'product' ? 'Product Focus' : 'General Content'}
@@ -34,6 +42,7 @@ Tone: ${options.tone || 'Professional'}
 Industry: ${options.industry || 'General'}
 
 IMPORTANT: 
+- Always use the brand name if provided
 - Generate content adapted to ${options.analysisMode === 'product' ? 'product marketing' : 'lifestyle/branding'}
 - Make sure to generate complete content for each selected platform
 - Include all required fields (caption/post, hashtags, etc.)
@@ -49,6 +58,7 @@ IMPORTANT:
             throw new Error('No content generated');
           }
 
+          console.log('Raw API response:', content);
           return content;
         },
         'social-generator'
@@ -56,6 +66,7 @@ IMPORTANT:
 
       // Nettoyer et valider le JSON
       const parsedContent = await this.cleanAndValidateJson(result, 'social-generator');
+      console.log('Parsed content:', parsedContent);
       
       // Ensure we have all required fields
       const validatedContent: SimpleSocialContent = {

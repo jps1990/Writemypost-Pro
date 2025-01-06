@@ -1,23 +1,35 @@
 import { supabase } from './supabase-client';
 import type { UploadedImage, GeneratedContent, GenerationOptions } from './types';
 import { contentGenerator } from './content-generator';
+import { toast } from 'sonner';
 
 export async function analyzeImage(
   image: UploadedImage,
   options: GenerationOptions = {}
 ): Promise<GeneratedContent['imageAnalysis']> {
   try {
-    // Valider le fichier
+    // Validate required options
+    if (!options.language?.trim()) {
+      toast.error('Please set your target language first');
+      throw new Error('Target language must be set before analysis');
+    }
+
+    if (!options.analysisMode) {
+      toast.error('Please select an analysis mode (Product Focus or General Content)');
+      throw new Error('Analysis mode must be selected before analysis');
+    }
+
+    // Validate image
     if (!image.file || !(image.file instanceof File)) {
-      throw new Error('Invalid file provided');
+      toast.error('Invalid file format. Please upload a valid image.');
+      throw new Error('Invalid file format');
     }
 
     validateImage(image.file);
 
-    // Convertir l'image en base64
     const base64Image = await convertFileToBase64(image.file);
     
-    // Analyser l'image
+    // Analyze image using content generator
     const analysis = await contentGenerator.analyze({
       ...image,
       base64: base64Image
@@ -26,8 +38,9 @@ export async function analyzeImage(
     return analysis;
 
   } catch (error) {
-    console.error('Error analyzing image:', error);
-    throw error instanceof Error ? error : new Error('Failed to analyze image');
+    const message = error instanceof Error ? error.message : 'Failed to analyze image';
+    console.error('Image analysis error:', message, error);
+    throw new Error(message);
   }
 }
 
@@ -45,12 +58,15 @@ export async function generateContent(
 
 function validateImage(file: File) {
   if (!file.type.startsWith('image/')) {
-    throw new Error('Invalid file type. Please upload an image.');
+    toast.error('Invalid file type. Please upload an image file (JPG, PNG, etc).');
+    throw new Error('Invalid file type');
   }
   
   if (file.size > 20 * 1024 * 1024) { // 20MB limit
-    throw new Error('File size too large. Maximum size is 20MB.');
+    toast.error('Image file is too large. Maximum size is 20MB.');
+    throw new Error('File size exceeds limit');
   }
+  return true;
 }
 
 function convertFileToBase64(file: File): Promise<string> {

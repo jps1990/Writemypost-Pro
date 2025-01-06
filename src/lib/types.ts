@@ -44,11 +44,12 @@ export interface UploadedImage {
   base64: string;
 }
 
-export interface FileDropzoneProps extends React.HTMLAttributes<HTMLDivElement> {
+export interface FileDropzoneProps {
   onDrop: (files: File[]) => void;
   value: UploadedImage | null;
   onRemove: () => void;
   disabled?: boolean;
+  className?: string;
 }
 
 export interface ListingFormProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -91,6 +92,7 @@ export interface GenerationOptions {
   imageFile?: File;
   currency?: CurrencyCode;
   priceRange?: PriceRange;
+  brandName?: string;
 }
 
 export interface SocialPlatformConfig {
@@ -284,6 +286,12 @@ export interface SimpleSocialContent {
       caption: string;
       filters: string[];
     };
+    medium?: {
+      title: string;
+      subtitle: string;
+      content: string;
+      tags: string[];
+    };
     email?: {
       subject: string;
       long: string;
@@ -391,6 +399,11 @@ export interface ImageAnalysis {
     tone: string;
     emotion: string;
     keywords: string[];
+  };
+  hashtags?: {
+    recommended: string[];
+    niche: string[];
+    trending: string[];
   };
 }
 

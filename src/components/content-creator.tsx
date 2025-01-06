@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/select';
 import { GeneratedContent, UploadedImage, GenerationOptions, ToastOptions } from '@/lib/types';
 import { FileDropzone } from '@/components/ui/dropzone';
-import { uploadAndAnalyzeImage } from '@/lib/api';
+import { analyzeImage, generateContent } from '@/lib/api';
 import { toast } from 'sonner';
 import { SEO } from '@/components/seo';
 import { storage } from '@/lib/storage';
@@ -54,6 +54,7 @@ export function ContentCreator() {
   const [focusMode, setFocusMode] = useState<'product' | 'general'>(() => 
     localStorage.getItem('focusMode') as 'product' | 'general' || 'product'
   );
+  const [brandName, setBrandName] = useState<string>(() => storage.getBrandName());
   const [isLanguageValid, setIsLanguageValid] = useState(false);
   const languageInputRef = useRef<HTMLInputElement>(null);
   const [analyzedFocuses, setAnalyzedFocuses] = useState<('product' | 'general')[]>([]);
@@ -126,16 +127,33 @@ export function ContentCreator() {
     }
   }, [targetLanguage]);
 
+  // Save brand name when it changes
+  useEffect(() => {
+    if (brandName?.trim()) {
+      storage.setBrandName(brandName);
+    }
+  }, [brandName]);
+
   const handleImageUpload = useCallback(async (image: UploadedImage) => {
     setUploadedImage(image);
     setIsGenerating(true);
     setAnalyzedFocuses([]); // Reset analyzed focuses for new image
     
     try {
+      if (!targetLanguage.trim()) {
+        toast.error('Please set your target language first');
+        return;
+      }
+
+      if (!focusMode) {
+        toast.error('Please select an analysis mode');
+        return;
+      }
+
       const analysis = await analyzeImage(image, {
         userId: (await supabase.auth.getSession()).data.session?.user.id || '',
         analysisMode: focusMode,
-        language: targetLanguage
+        language: targetLanguage.trim()
       });
       
       setGeneratedContent({ imageAnalysis: analysis });
@@ -223,14 +241,26 @@ export function ContentCreator() {
         throw new Error('Please select a content tone');
       }
       
+      // Add email to platforms for bonus content
+      const platformsWithEmail = [...selectedPlatforms, 'email'];
+      
+      console.log('Generating content with options:', {
+        tone: selectedTone,
+        language: targetLanguage,
+        platforms: platformsWithEmail,
+        mode: 'social'
+      });
+
       const content = await generateContent(generatedContent.imageAnalysis, {
         tone: selectedTone,
         language: targetLanguage,
-        platforms: selectedPlatforms,
+        platforms: platformsWithEmail,
         mode: 'social',
+        brandName: brandName,
         userId: (await supabase.auth.getSession()).data.session?.user.id || ''
       });
       
+      console.log('Generated content:', content);
       setGeneratedContent(content);
       toast.success('Content generated successfully');
     } catch (error) {
@@ -340,6 +370,9 @@ export function ContentCreator() {
         description="Create engaging social media content with our AI-powered tools. Generate optimized posts for multiple platforms."
         keywords={['content creation', 'social media', 'AI content', 'content generator']}
       />
+      
+      {/* Initial Setup Requirements Alert */}
+
       <div className="flex flex-col space-y-4">
         <h1 className="text-3xl font-bold">Content Creator</h1>
         <p className="text-muted-foreground">
@@ -350,19 +383,48 @@ export function ContentCreator() {
       <Card>
         <CardHeader>
           <CardTitle>Upload Product Image</CardTitle>
-          <div className="flex flex-col space-y-4">
-            <Alert variant={isLanguageValid ? "success" : "warning"}>
-              {isLanguageValid ? (
-                <Check className="h-4 w-4 text-green-500" />
-              ) : (
-                <AlertCircle className="h-4 w-4" />
-              )}
-              <AlertDescription>
-                {targetLanguage.trim() 
-                  ? <span className="text-green-500">Target language set to: <strong>{targetLanguage}</strong></span>
-                  : 'Please enter your target language'}
-              </AlertDescription>
-            </Alert>
+          <div className="mb-6 space-y-4">
+            <div className="space-y-4">
+              <Alert 
+                variant={isLanguageValid && focusMode ? "success" : "warning"}
+                className={cn(
+                  "border-2",
+                  isLanguageValid && focusMode 
+                    ? "border-green-500 bg-green-50 dark:bg-green-900/20" 
+                    : "border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20"
+                )}
+              >
+                <AlertCircle className={cn(
+                  "h-4 w-4",
+                  isLanguageValid && focusMode ? "text-green-500" : "text-yellow-500"
+                )} />
+                <AlertDescription>
+                  <strong className="block mb-2">Before uploading an image:</strong>
+                  <ul className="list-disc ml-6 mt-2">
+                    <li className={isLanguageValid ? "text-green-500" : ""}>
+                      {isLanguageValid ? "✓ Language selected" : "Select target language"}
+                    </li>
+                    <li className={focusMode ? "text-green-500" : ""}>
+                      {focusMode ? `✓ Mode selected: ${focusMode}` : "Select analysis mode"}
+                    </li>
+                  </ul>
+                </AlertDescription>
+              </Alert>
+
+              <Alert variant={isLanguageValid ? "success" : "destructive"}>
+                {isLanguageValid ? (
+                  <Check className="h-4 w-4 text-green-500" />
+                ) : (
+                  <AlertCircle className="h-4 w-4 text-destructive" />
+                )}
+                <AlertDescription>
+                  {targetLanguage.trim() 
+                    ? <span className="text-green-500">Target language set to: <strong>{targetLanguage}</strong></span>
+                    : <span className="font-medium">Please enter your target language before proceeding</span>}
+                </AlertDescription>
+              </Alert>
+            </div>
+
             <div className="flex items-center gap-2">
               <div className="relative flex-1 max-w-[300px]">
                 <Input
@@ -410,24 +472,44 @@ export function ContentCreator() {
           </div>
         </CardHeader>
         <CardContent>
+
           <div className="relative w-full min-h-[400px] mb-6 overflow-hidden rounded-lg">
             <div className="absolute top-4 left-4 z-10 flex gap-2">
-              <Button
-                size="sm"
-                variant={focusMode === 'product' ? 'default' : 'outline'}
-                onClick={() => handleFocusChange('product')}
-                disabled={isGenerating || analyzedFocuses.includes('product')}
-              >
-                Product {analyzedFocuses.includes('product') && '✓'}
-              </Button>
-              <Button
-                size="sm"
-                variant={focusMode === 'general' ? 'default' : 'outline'}
-                onClick={() => handleFocusChange('general')}
-                disabled={isGenerating || analyzedFocuses.includes('general')}
-              >
-                General {analyzedFocuses.includes('general') && '✓'}
-              </Button>
+              <div className="flex flex-col gap-2">
+                <Alert variant={focusMode ? "success" : "destructive"} className="mb-2">
+                  <AlertDescription>
+                    {focusMode 
+                      ? <span className="text-green-500">Analysis mode: <strong>{focusMode === 'product' ? 'Product Focus' : 'General Content'}</strong></span>
+                      : <span className="font-medium">Select an analysis mode</span>}
+                  </AlertDescription>
+                </Alert>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant={focusMode === 'product' ? 'default' : 'outline'}
+                    onClick={() => handleFocusChange('product')}
+                    disabled={isGenerating || analyzedFocuses.includes('product')}
+                    className={cn(
+                      focusMode === 'product' && "bg-blue-500 hover:bg-blue-600",
+                      "min-w-[100px]"
+                    )}
+                  >
+                    Product {analyzedFocuses.includes('product') && '✓'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={focusMode === 'general' ? 'default' : 'outline'}
+                    onClick={() => handleFocusChange('general')}
+                    disabled={isGenerating || analyzedFocuses.includes('general')}
+                    className={cn(
+                      focusMode === 'general' && "bg-blue-500 hover:bg-blue-600",
+                      "min-w-[100px]"
+                    )}
+                  >
+                    General {analyzedFocuses.includes('general') && '✓'}
+                  </Button>
+                </div>
+              </div>
             </div>
             {uploadedImage ? (
               <div className="relative w-full h-full flex items-center justify-center bg-muted">
@@ -456,11 +538,11 @@ export function ContentCreator() {
               </div>
             ) : (
               <FileDropzone
-                disabled={!targetLanguage.trim()}
+                disabled={!targetLanguage.trim() || !focusMode}
                 onDrop={(files) => {
-                  if (!targetLanguage.trim()) {
+                  if (!targetLanguage.trim() || !focusMode) {
                     toast.error('Please set your target language first', {
-                      duration: 4000,
+                      duration: 5000,
                       position: 'top-center',
                       variant: 'destructive'
                     } as ToastOptions);
@@ -503,7 +585,7 @@ export function ContentCreator() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <HashtagGenerator 
-            hashtags={generatedContent?.social?.hashtags}
+            hashtags={generatedContent?.imageAnalysis?.hashtags}
             isLoading={isLoading}
             showEmpty={true}
           />
@@ -641,6 +723,8 @@ export function ContentCreator() {
                     <Textarea 
                       placeholder="Add any additional details or specific requirements for the content..."
                       className="min-h-[100px]"
+                      value={brandName}
+                      onChange={(e) => setBrandName(e.target.value)}
                     />
                   </div>
 

@@ -83,7 +83,13 @@ export function MarketplaceContent({ content, isLoading }: MarketplaceContentPro
                   )}
                   {Object.entries(content.technicalDetails?.specifications || {}).map(([key, value]) => (
                     <p key={key} className="text-sm">
-                      <span className="font-medium">{key}:</span> {typeof value === 'object' ? JSON.stringify(value) : value}
+                      <span className="font-medium">{key}:</span>
+                      <span className="ml-2">
+                        {typeof value === 'object' 
+                          ? JSON.stringify(value, null, 2)
+                          : String(value)
+                        }
+                      </span>
                     </p>
                   ))}
                 </div>

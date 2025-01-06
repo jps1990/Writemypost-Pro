@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -10,6 +12,7 @@ import { SEO } from '@/components/seo';
 
 export function Profile() {
   const [isEditing, setIsEditing] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   return (
     <>
@@ -65,6 +68,15 @@ export function Profile() {
                   <div className="grid gap-2">
                     <Label htmlFor="name">Name</Label>
                     <Input id="name" defaultValue="John Doe" />
+                    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                      <DialogContent>
+                        <DialogTitle>Edit Profile Information</DialogTitle>
+                        <DialogDescription>
+                          Make changes to your profile information below.
+                        </DialogDescription>
+                        {/* Dialog content here */}
+                      </DialogContent>
+                    </Dialog>
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="email">Email</Label>

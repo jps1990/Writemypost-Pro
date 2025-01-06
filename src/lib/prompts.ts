@@ -122,11 +122,31 @@ DIRECTIVES IMPORTANTES:
   "marketAnalysis": {
     "targetAudience": ["audience1", "audience2"],
     "pricePoint": "budget|mid-range|premium|luxury",
-    "uniqueSellingPoints": ["point1", "point2"]
+    "uniqueSellingPoints": ["point1", "point2", "point3"]
+  },
+  "hashtags": {
+    "recommended": ["hashtags populaires et pertinents - minimum 10"],
+    "niche": ["hashtags spécifiques au domaine/niche - minimum 10"],
+    "trending": ["hashtags tendance liés au contenu - minimum 10"],
+    "youth": ["hashtags jeunes comme #fyp, #viral, #foryou - minimum 10"]
   }
 }
 
-IMPORTANT: Réponds UNIQUEMENT en JSON valide. Pas de texte avant ou après.`;
+IMPORTANT: 
+- Réponds UNIQUEMENT en JSON valide. Pas de texte avant ou après.
+- Les hashtags doivent être pertinents et optimisés pour l'engagement
+- Inclure un mix équilibré de hashtags:
+  • Populaires: hashtags très utilisés et pertinents (>10)
+  • Niche: hashtags spécifiques au domaine/industrie (>10) 
+  • Trending: hashtags actuellement tendance (>10)
+  • Youth: hashtags populaires chez les jeunes comme #fyp, #viral, etc. (>10)
+- Adapter les hashtags selon:
+  • Le type de contenu (produit vs lifestyle)
+  • La plateforme cible (TikTok, Instagram, etc.)
+  • L'audience visée (jeune, professionnelle, etc.)
+- Minimum 40 hashtags au total, répartis équitablement
+- Inclure des émojis
+- Varier entre hashtags en anglais et dans la langue cible`;
 
 export const MARKETPLACE_PROMPT = `You are a digital marketing expert specializing in creating product listings for marketplaces.
 Your job is to generate content that SELLS, CONVERTS, and is OPTIMIZED for every platform.
